@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>EverFall — Focus Timer (v1 final)</title>
+<meta name="color-scheme" content="dark">
+<style>
+  :root{
+    --bg-1:#02120a; --bg-2:#071b12;
+    --accent:#12d57a; --accent-2:#0a9f52;
+    --muted:#91b59c;
+    --card:rgba(255,255,255,0.03);
+    --focus-shadow:0 18px 40px rgba(12,170,90,0.12);
+    --footer-h1: 14,213,139;
+    --footer-h2: 10,140,80;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial; -webkit-font-smoothing:antialiased;
+    background:
+      radial-gradient(900px 300px at 6% 10%, rgba(6,30,18,0.28), transparent 14%),
+      linear-gradient(180deg,var(--bg-1),var(--bg-2));
+    color:#e8f7ef; -webkit-tap-highlight-color:transparent;
+  }
+
+  .wrap{ width:1000px; max-width:calc(100% - 32px); min-height:640px; margin:20px auto; border-radius:16px; overflow:hidden;
+    box-shadow:0 28px 80px rgba(0,0,0,0.65); display:grid; grid-template-columns:1fr 420px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));
+  }
+
+  .scene{ position:relative; padding:18px; display:flex; align-items:center; justify-content:center; overflow:hidden; min-height:640px }
+
+  .timer-card{ width:360px; max-width:92vw; background:var(--card); padding:18px; border-radius:14px; display:flex; flex-direction:column; align-items:center; gap:12px; border:1px solid rgba(255,255,255,0.02) }
+
+  .brand{ display:flex; gap:12px; align-items:center; width:100% }
+  .settings-btn{ display:inline-flex; align-items:center; justify-content:center; width:42px; height:38px; padding:6px; border-radius:10px; background:transparent; border:1px solid rgba(255,255,255,0.03); color:var(--muted); cursor:pointer; font-weight:800; }
+  .settings-btn svg{ width:18px; height:18px; display:block; }
+  .settings-btn.clicked{ transform:rotate(20deg) scale(1.02); transition:transform 200ms ease; } /* short click feedback */
+
+  .brand-text{ display:flex; flex-direction:column }
+  .title{ font-size:16px; font-weight:900 }
+  .subtitle{ color:var(--muted); font-size:13px }
+
+  .ring-wrap{ position:relative; width:240px; height:240px }
+  svg.timer-ring{ width:100%; height:100%; transform:rotate(-90deg) }
+  .time-main{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none }
+  .time-main .time{ font-size:40px; font-weight:900; background:linear-gradient(90deg,#dbfff1,var(--accent)); -webkit-background-clip:text; color:transparent }
+  .time-main .sub{ font-size:13px; color:var(--muted); margin-top:8px }
+
+  .controls{ display:flex; gap:12px; margin-top:8px }
+  .btn{ height:50px; min-width:96px; border-radius:12px; border:0; cursor:pointer; font-weight:800; display:inline-flex;align-items:center;justify-content:center; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); color:var(--accent); border:1px solid rgba(255,255,255,0.03) }
+  .btn.primary{ background: linear-gradient(90deg,var(--accent),var(--accent-2)); color:#062617; box-shadow:var(--focus-shadow) }
+  .btn:active{ transform:translateY(2px) scale(.997) }
+
+  .mode-row{ display:flex; gap:8px; align-items:center; justify-content:center; flex-wrap:wrap }
+  .mode-btn{ padding:8px 12px; border-radius:999px; background:transparent; color:var(--muted); border:1px solid transparent; font-weight:800; cursor:pointer }
+  .mode-btn.active{ color:#eafff1; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-color: rgba(255,255,255,0.03) }
+
+  .custom-input{ display:none; margin-left:6px; }
+  .custom-input input{ width:84px; padding:6px 8px; border-radius:8px; background:transparent; border:1px solid rgba(255,255,255,0.03); color:inherit; font-weight:700 }
+
+  .progress-bar{ width:100%; height:12px; background:rgba(255,255,255,0.02); border-radius:999px; overflow:hidden }
+  .progress-fill{ height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); transition: width 260ms linear }
+
+  .meta-row{ display:flex; gap:10px; align-items:center; justify-content:space-between; width:100%; margin-top:6px }
+  .chip{ background:var(--card); padding:8px 12px; border-radius:999px; color:var(--muted); font-weight:700; font-size:13px }
+
+  .week{ display:flex; gap:8px; align-items:center; overflow-x:auto; padding:6px 0; margin-top:10px; width:100% }
+  .day{ position:relative; min-width:46px; height:46px; border-radius:8px; display:grid; place-items:center; background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00)); border:1px solid rgba(255,255,255,0.02); font-weight:800; color:var(--muted); font-size:14px; padding-bottom:8px; cursor:pointer }
+  .day .bar{ position:absolute; bottom:6px; left:6px; right:6px; height:6px; background:rgba(255,255,255,0.03); border-radius:999px; overflow:hidden }
+  .day .bar > i{ display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); transition:width 260ms linear }
+  .day.full{ background: linear-gradient(90deg,var(--accent),var(--accent-2)); color:#062817; border-color: rgba(255,255,255,0.03) }
+  .day.today{ box-shadow:0 8px 26px rgba(12,170,90,0.08); border:2px solid rgba(18,220,130,0.22); transform:scale(1.04); }
+
+  .panel{ padding:20px; display:flex; flex-direction:column; gap:12px; border-left:1px solid rgba(255,255,255,0.02); background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent) }
+  .panel h3{ margin:0; font-size:14px }
+  .panel .small{ color:var(--muted); font-size:13px }
+
+  .leaderboard{ display:flex; flex-direction:column; gap:8px; margin-top:6px }
+  .leaderboard .row{ display:flex; justify-content:space-between; align-items:center; padding:8px; border-radius:8px; background:rgba(255,255,255,0.01); border:1px solid rgba(255,255,255,0.02) }
+  .leaderboard .row.me{ background: linear-gradient(90deg,var(--accent),var(--accent-2)); color:#062817; font-weight:900 }
+
+  /* hidden day modal (slide-up bottom sheet) */
+  .day-modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.38); display:none; z-index:200; }
+  .day-modal{ position:fixed; left:0; right:0; bottom:-100%; max-width:720px; margin:0 auto; background:linear-gradient(180deg, rgba(6,12,8,0.98), rgba(3,6,4,0.96)); border-top-left-radius:14px; border-top-right-radius:14px; padding:18px; box-shadow:0 -28px 80px rgba(0,0,0,0.6); z-index:210; transition:transform 360ms cubic-bezier(.2,.9,.2,1); transform:translateY(100%); }
+  .day-modal.visible{ transform:translateY(0%); bottom:0; }
+  .day-modal .head{ display:flex; align-items:center; gap:12px; margin-bottom:12px }
+  .day-modal .head h3{ margin:0; font-size:18px }
+  .day-modal .meta{ color:var(--muted); font-size:13px; margin-top:6px }
+  .day-modal .close{ margin-left:auto; background:transparent; border:1px solid rgba(255,255,255,0.04); color:var(--muted); padding:6px 10px; border-radius:8px; cursor:pointer }
+  .day-modal .meter{ height:12px; background:rgba(255,255,255,0.03); border-radius:999px; overflow:hidden; margin-top:12px }
+  .day-modal .meter > i{ display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); transition:width 360ms linear }
+
+  .settings-pop{ position:absolute; left:12px; top:56px; width:280px; background:var(--card); border-radius:12px; padding:12px; border:1px solid rgba(255,255,255,0.03); box-shadow:0 24px 60px rgba(0,0,0,0.6); display:none; z-index:80; }
+  .settings-pop .row{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px }
+  .settings-pop label{ color:var(--muted); font-weight:700; font-size:13px }
+
+  /* improved footer visibility */
+  #siteFooter{ position:fixed; left:0; right:0; bottom:0; height:56px; display:flex; align-items:center; justify-content:center; font-weight:800; color:#eafff1; z-index:100;
+    background: linear-gradient(90deg, rgba(18,220,130,0.18), rgba(10,160,82,0.14));
+    box-shadow: 0 -6px 30px rgba(0,0,0,0.6);
+    border-top:1px solid rgba(255,255,255,0.03);
+    text-shadow: 0 8px 28px rgba(2,10,6,0.6);
+    font-size:13px;
+  }
+
+  @media (max-width:900px){
+    .wrap{ grid-template-columns:1fr; min-height:100vh; border-radius:0; margin:0; }
+    .panel{ position:sticky; bottom:0; width:100%; padding:14px; box-shadow:0 -8px 40px rgba(0,0,0,0.5) }
+    .timer-card{ width:92vw; }
+    .btn{ height:60px; min-width:120px; font-size:16px; border-radius:14px }
+    .settings-pop{ left:10px; top:72px; width:calc(100% - 20px) }
+    .day-modal{ max-width:100%; border-radius:14px 14px 0 0; padding-bottom:calc(56px + 18px); } /* accomodate footer */
+  }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+  <div class="wrap" id="app">
+    <div class="scene" id="scene">
+      <div class="timer-card" role="region" aria-label="EverFall timer">
+        <div class="brand" style="width:100%;position:relative">
+          <!-- App-style gear button -->
+          <button id="settingsBtn" class="settings-btn" aria-label="Settings (gear)">
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4">
+              <path d="M12 15.5A3.5 3.5 0 1 0 12 8.5 3.5 3.5 0 0 0 12 15.5Z" stroke-linecap="round" stroke-linejoin="round"></path>
+              <path d="M19.4 15.5l1.3 2.2-2.6 4.5-2.4-.6a8.3 8.3 0 0 1-1.8 1l-.4 2.5H11l-.4-2.5a8.3 8.3 0 0 1-1.8-1l-2.4.6L2.3 17.7l1.3-2.2a8.3 8.3 0 0 1 0-3l-1.3-2.2L4.6 4.2 7 4.8c.5-.4 1-0.8 1.6-1L8.2 1.3h4l-.4 2.5c.6.2 1.1.6 1.6 1l2.4-.6L21 6.3l-1.3 2.2a8.3 8.3 0 0 1 0 3z" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </button>
+
+          <div class="brand-text" style="margin-left:12px">
+            <div class="title">EverFall</div>
+            <div class="subtitle">Focus timer — dark: regrowth</div>
+          </div>
+
+          <div style="margin-left:auto" class="chip" id="modeChip">Mode • Hour</div>
+
+          <!-- settings popover -->
+          <div id="settingsPop" class="settings-pop" aria-hidden="true">
+            <div class="row"><label><input type="checkbox" id="usePomodoro"> Auto-cycles (Pomodoro)</label></div>
+            <div class="row"><label><input type="checkbox" id="notifyEnd"> Play tone at end</label></div>
+            <div class="row"><label>Pomodoro focus</label><input id="setPomFocus" type="number" min="1" value="25" style="width:72px"></div>
+            <div class="row"><label>Pomodoro break</label><input id="setPomBreak" type="number" min="0" value="5" style="width:72px"></div>
+            <div style="border-top:1px solid rgba(255,255,255,0.02);padding-top:8px;margin-top:6px;">
+              <button id="closeSettings" class="btn" style="width:100%">Close</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="ring-wrap" id="ringWrap">
+          <svg class="timer-ring" viewBox="0 0 120 120" aria-hidden="true">
+            <defs><linearGradient id="pg" x1="0" x2="1"><stop offset="0" stop-color="#cffeec"/><stop offset="1" stop-color="#6fcf88"/></linearGradient></defs>
+            <circle cx="60" cy="60" r="52" stroke="rgba(255,255,255,0.03)" stroke-width="12" fill="none" />
+            <circle id="progressRing" cx="60" cy="60" r="52" stroke="url(#pg)" stroke-width="12" fill="none" stroke-linecap="round" transform="rotate(-90 60 60)" stroke-dasharray="326.7" stroke-dashoffset="326.7"></circle>
+          </svg>
+
+          <div class="time-main">
+            <div class="time" id="timeDisplay">00:00:00</div>
+            <div class="sub" id="timeSub">Ready</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button class="btn" id="startBtn">Start</button>
+          <button class="btn" id="resetBtn">Reset</button>
+        </div>
+
+        <div class="mode-row" style="margin-top:8px;align-items:center">
+          <button class="mode-btn" data-mode="pomodoro">Pomodoro</button>
+          <button class="mode-btn active" data-mode="hour">Hour Focus</button>
+          <button class="mode-btn" data-mode="custom">Custom</button>
+
+          <div class="custom-input" id="customInput">
+            <input id="customFocusLocal" type="number" min="1" value="45" aria-label="Custom minutes">
+          </div>
+        </div>
+
+        <div style="width:100%;margin-top:12px">
+          <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+          <div class="meta-row">
+            <div class="chip" id="levelChip">Level • 1</div>
+            <div class="chip" id="dailyChip">Today • 0h 0m</div>
+          </div>
+        </div>
+
+        <div style="width:100%;margin-top:12px">
+          <div style="font-weight:800;color:var(--muted);font-size:13px">Weekly</div>
+          <div class="week" id="weekRow" aria-label="weekly progress"></div>
+        </div>
+
+        <div style="height:8px"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel">
+      <h3>Rank Today (Leaderboard)</h3>
+      <div class="small">Your position among rank thresholds</div>
+
+      <div class="leaderboard" id="leaderboard">
+        <div class="row" id="rowS"><div>S Rank</div><div id="sVal">16h</div></div>
+        <div class="row" id="rowA"><div>A Rank</div><div id="aVal">12h</div></div>
+        <div class="row" id="rowB"><div>B Rank</div><div id="bVal">6h</div></div>
+        <div class="row me" id="rowMe"><div>You</div><div id="youVal">0h</div></div>
+      </div>
+
+      <h3 style="margin-top:8px">Settings</h3>
+      <div class="small">Use the gear (top-left) for full settings.</div>
+
+      <div style="margin-top:8px;color:var(--muted);font-size:13px">Daily thresholds: B 6h • A 12h • S 16h. Daily counts reset at local midnight; weekly history preserved.</div>
+    </div>
+  </div>
+
+  <!-- day modal backdrop + sheet -->
+  <div id="dayBackdrop" class="day-modal-backdrop" aria-hidden="true"></div>
+  <aside id="dayModal" class="day-modal" role="dialog" aria-hidden="true" aria-modal="true">
+    <div class="head">
+      <h3 id="modalTitle">Day</h3>
+      <button class="close" id="closeDay">Close</button>
+    </div>
+    <div class="meta" id="modalMeta">—</div>
+    <div style="margin-top:12px">
+      <div style="font-weight:800;color:var(--muted);font-size:13px">Today progress</div>
+      <div class="meter" id="modalMeter"><i style="width:0%"></i></div>
+      <div style="margin-top:10px;color:var(--muted)" id="modalDetails">—</div>
+    </div>
+  </aside>
+
+  <div id="siteFooter">EverFall by Anurvg</div>
+
+<script>
+/* Final patch: day slide-up modal + small UI changes requested.
+   Core timer logic and storage remain unchanged (kept minimal and compatible with previous state).
+*/
+
+const STORE = 'EverFall_state_v2_patch_final';
+
+// helpers
+const pad2 = n => String(n).padStart(2,'0');
+const nowMs = () => Date.now();
+function formatHMS(ms){ const sec = Math.floor(ms/1000); const h=Math.floor(sec/3600); const m=Math.floor((sec%3600)/60); const s=sec%60; return `${pad2(h)}:${pad2(m)}:${pad2(s)}`; }
+function minutesToHM(mins){ return `${Math.floor(mins/60)}h ${mins%60}m`; }
+function dayIndexLocal(d=new Date()){ return d.getDay(); }
+
+// DOM refs
+const progressRing = document.getElementById('progressRing');
+const timeDisplay = document.getElementById('timeDisplay');
+const timeSub = document.getElementById('timeSub');
+const startBtn = document.getElementById('startBtn');
+const resetBtn = document.getElementById('resetBtn');
+const modeBtns = document.querySelectorAll('.mode-btn');
+const progressFill = document.getElementById('progressFill');
+const levelChip = document.getElementById('levelChip');
+const dailyChip = document.getElementById('dailyChip');
+const weekRow = document.getElementById('weekRow');
+const youVal = document.getElementById('youVal');
+const modeChip = document.getElementById('modeChip');
+
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsPop = document.getElementById('settingsPop');
+const closeSettings = document.getElementById('closeSettings');
+const usePomodoro = document.getElementById('usePomodoro');
+const notifyEnd = document.getElementById('notifyEnd');
+const setPomFocus = document.getElementById('setPomFocus');
+const setPomBreak = document.getElementById('setPomBreak');
+
+const customInput = document.getElementById('customInput');
+const customFocusLocal = document.getElementById('customFocusLocal');
+
+const dayBackdrop = document.getElementById('dayBackdrop');
+const dayModal = document.getElementById('dayModal');
+const modalTitle = document.getElementById('modalTitle');
+const modalMeta = document.getElementById('modalMeta');
+const modalMeter = document.getElementById('modalMeter').firstElementChild;
+const modalDetails = document.getElementById('modalDetails');
+const closeDay = document.getElementById('closeDay');
+
+// ring
+const R = 52;
+const CIRC = 2*Math.PI*R;
+progressRing.style.strokeDasharray = CIRC;
+progressRing.style.strokeDashoffset = CIRC;
+
+// state (minimal)
+let state = {
+  totalFocusedMinutes: 0,
+  weekMinutes: [0,0,0,0,0,0,0], // index 0 = today
+  todayIndex: dayIndexLocal(),
+  running: false,
+  startAt: null,
+  remainingSec: 0,
+  mode: 'hour',
+  settings: { pomodoroFocusMin:25, pomodoroBreakMin:5, hourMin:60, customFocusMin:45 },
+  inBreak: false
+};
+
+// load / save
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORE);
+    if(raw){
+      const s = JSON.parse(raw);
+      state.totalFocusedMinutes = Number(s.totalFocusedMinutes) || state.totalFocusedMinutes;
+      if(Array.isArray(s.weekMinutes) && s.weekMinutes.length===7) state.weekMinutes = s.weekMinutes.map(n=>Number(n)||0);
+      state.todayIndex = dayIndexLocal();
+      if(s.mode) state.mode = s.mode;
+      if(s.settings) state.settings = Object.assign(state.settings, s.settings);
+    }
+  }catch(e){}
+}
+function saveState(){ try{ localStorage.setItem(STORE, JSON.stringify(state)); }catch(e){} }
+loadState();
+
+// day sync
+function ensureDaySync(){
+  const idx = dayIndexLocal();
+  if(idx !== state.todayIndex){
+    const diff = (idx - state.todayIndex + 7) % 7;
+    for(let i=0;i<diff;i++){
+      state.weekMinutes.pop();
+      state.weekMinutes.unshift(0);
+    }
+    state.todayIndex = idx;
+    saveState();
+  }
+}
+
+// week UI
+const dayLabels = ['S','M','T','W','T','F','S'];
+function initWeekUI(){
+  weekRow.innerHTML='';
+  for(let j=0;j<7;j++){
+    const d = document.createElement('div');
+    d.className = 'day';
+    d.dataset.j = j;
+    d.innerHTML = `<div class="label">${dayLabels[j]}</div><div class="mini" style="position:absolute;top:6px;right:6px;font-size:11px;color:var(--muted)"></div><div class="bar"><i></i></div>`;
+    // attach click to open day modal
+    d.addEventListener('click', ()=> openDayModal(j));
+    weekRow.appendChild(d);
+  }
+}
+initWeekUI();
+
+function minutesForLabelIndex(j){
+  const offset = (state.todayIndex - j + 7) % 7;
+  return state.weekMinutes[offset] || 0;
+}
+
+function renderWeek(){
+  for(let j=0;j<7;j++){
+    const el = weekRow.children[j];
+    const mins = minutesForLabelIndex(j);
+    const frac = Math.min(1, mins / (16*60));
+    const bar = el.querySelector('.bar > i');
+    bar.style.width = `${Math.round(frac*100)}%`;
+    el.classList.toggle('full', mins >= 6*60);
+    el.classList.toggle('today', j === dayIndexLocal());
+    el.title = `${Math.floor(mins/60)}h ${mins%60}m`;
+    const mini = el.querySelector('.mini');
+    mini.textContent = `${Math.floor(mins/60)}h`;
+  }
+}
+
+// level & rank
+function currentLevel(){ return Math.floor(state.totalFocusedMinutes / 60) + 1; }
+function currentTodayMinutes(){ return state.weekMinutes[0] || 0; }
+function computeRank(minutes){ if(minutes >= 16*60) return 'S'; if(minutes >= 12*60) return 'A'; if(minutes >= 6*60) return 'B'; return '—'; }
+
+function updateProgressUI(){
+  levelChip.textContent = `Level • ${currentLevel()}`;
+  dailyChip.textContent = `Today • ${minutesToHM(currentTodayMinutes())}`;
+  youVal.textContent = `${Math.floor(currentTodayMinutes()/60)}h`;
+  const rank = computeRank(currentTodayMinutes());
+  ['rowS','rowA','rowB','rowMe'].forEach(id=> {
+    const el = document.getElementById(id);
+    if(el) el.classList.remove('me');
+  });
+  if(rank === 'S') document.getElementById('rowS').classList.add('me');
+  else if(rank === 'A') document.getElementById('rowA').classList.add('me');
+  else if(rank === 'B') document.getElementById('rowB').classList.add('me');
+  else document.getElementById('rowMe').classList.add('me');
+  renderWeek();
+  saveState();
+}
+
+// ring and display
+function setRingFraction(frac){
+  frac = Math.max(0, Math.min(1, frac));
+  progressRing.style.strokeDashoffset = CIRC * (1 - frac);
+  progressFill.style.width = `${Math.round(frac*100)}%`;
+}
+
+function setMode(m){
+  state.mode = m;
+  modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === m));
+  modeChip.textContent = `Mode • ${m === 'pomodoro' ? 'Pomodoro' : m === 'hour' ? 'Hour' : 'Custom'}`;
+  if(m === 'custom'){ customInput.style.display = 'inline-block'; state.remainingSec = (parseInt(customFocusLocal.value||state.settings.customFocusMin,10) || state.settings.customFocusMin)*60; }
+  else { customInput.style.display = 'none'; if(m === 'pomodoro') state.remainingSec = state.settings.pomodoroFocusMin*60; else state.remainingSec = state.settings.hourMin*60; }
+  updateTimeDisplay();
+  saveState();
+}
+
+function updateTimeDisplay(){
+  const sec = state.remainingSec || 0;
+  timeDisplay.textContent = formatHMS(sec*1000);
+  const total = (state.mode === 'pomodoro' && !state.inBreak) ? state.settings.pomodoroFocusMin*60 :
+                (state.mode === 'pomodoro' && state.inBreak) ? state.settings.pomodoroBreakMin*60 :
+                (state.mode === 'hour' ? state.settings.hourMin*60 : (parseInt(customFocusLocal.value||state.settings.customFocusMin,10) || state.settings.customFocusMin)*60);
+  const frac = Math.max(0, Math.min(1, 1 - (sec / Math.max(1,total))));
+  setRingFraction(frac);
+  if(state.mode === 'pomodoro') timeSub.textContent = state.inBreak ? 'Recharge your focus' : 'Focus • Pomodoro';
+  else if(state.mode === 'hour') timeSub.textContent = `Focus • ${state.settings.hourMin} min`;
+  else timeSub.textContent = `Focus • Custom`;
+}
+
+// timer control (same single Start toggle)
+let raf = null;
+function startTimer(){
+  if(state.running) return;
+  if(!state.remainingSec || state.remainingSec <= 0){
+    if(state.mode === 'pomodoro') state.remainingSec = state.settings.pomodoroFocusMin*60;
+    else if(state.mode === 'hour') state.remainingSec = state.settings.hourMin*60;
+    else state.remainingSec = (parseInt(customFocusLocal.value||state.settings.customFocusMin,10) || state.settings.customFocusMin)*60;
+  }
+  state.running = true;
+  state.startAt = nowMs();
+  startBtn.classList.add('primary');
+  startBtn.textContent = 'Pause';
+  tick();
+  saveState();
+}
+function pauseTimer(){
+  if(!state.running) return;
+  const elapsed = Math.floor((nowMs() - state.startAt)/1000);
+  state.remainingSec = Math.max(0, state.remainingSec - elapsed);
+  state.running = false;
+  state.startAt = null;
+  startBtn.classList.remove('primary');
+  startBtn.textContent = 'Start';
+  cancelAnimationFrame(raf);
+  saveState();
+}
+function resetTimer(){
+  if(state.running) pauseTimer();
+  if(state.mode === 'pomodoro') state.remainingSec = state.settings.pomodoroFocusMin*60;
+  else if(state.mode === 'hour') state.remainingSec = state.settings.hourMin*60;
+  else state.remainingSec = (parseInt(customFocusLocal.value||state.settings.customFocusMin,10) || state.settings.customFocusMin)*60;
+  state.inBreak = false;
+  timeSub.textContent = 'Ready';
+  updateTimeDisplay();
+  saveState();
+}
+function tick(){
+  if(!state.running){ raf = requestAnimationFrame(tick); return; }
+  const elapsed = Math.floor((nowMs() - state.startAt)/1000);
+  const remaining = Math.max(0, (state.remainingSec || 0) - elapsed);
+  const total = (state.mode === 'pomodoro' && !state.inBreak) ? state.settings.pomodoroFocusMin*60 :
+                (state.mode === 'pomodoro' && state.inBreak) ? state.settings.pomodoroBreakMin*60 :
+                (state.mode === 'hour' ? state.settings.hourMin*60 : (parseInt(customFocusLocal.value||state.settings.customFocusMin,10)||state.settings.customFocusMin)*60);
+  const frac = Math.max(0, Math.min(1, 1 - (remaining / Math.max(1,total))));
+  progressFill.style.width = `${Math.round(frac*100)}%`;
+  progressRing.style.strokeDashoffset = CIRC*(1-frac);
+  timeDisplay.textContent = formatHMS(remaining*1000);
+
+  if(remaining <= 0){
+    state.running = false;
+    state.startAt = null;
+    cancelAnimationFrame(raf);
+    handleSessionComplete();
+  } else {
+    raf = requestAnimationFrame(tick);
+  }
+}
+
+function handleSessionComplete(){
+  if(state.mode === 'pomodoro'){
+    if(!state.inBreak){
+      addFocusedMinutes(state.settings.pomodoroFocusMin);
+      state.inBreak = true;
+      timeSub.textContent = 'Recharge your focus';
+      if(usePomodoro.checked){
+        state.remainingSec = state.settings.pomodoroBreakMin*60;
+        startTimer();
+        return;
+      } else {
+        state.remainingSec = state.settings.pomodoroBreakMin*60;
+        updateTimeDisplay(); saveState(); return;
+      }
+    } else {
+      state.inBreak = false;
+      state.remainingSec = state.settings.pomodoroFocusMin*60;
+      timeSub.textContent = 'Focus • Pomodoro';
+      updateTimeDisplay(); saveState(); return;
+    }
+  } else {
+    const added = state.mode === 'hour' ? state.settings.hourMin : (parseInt(customFocusLocal.value||state.settings.customFocusMin,10)||state.settings.customFocusMin);
+    addFocusedMinutes(added);
+    timeSub.textContent = 'Session complete';
+    if(state.mode === 'hour') state.remainingSec = state.settings.hourMin*60; else state.remainingSec = (parseInt(customFocusLocal.value||state.settings.customFocusMin,10)||state.settings.customFocusMin)*60;
+    updateTimeDisplay(); saveState();
+  }
+}
+
+function addFocusedMinutes(mins){
+  ensureDaySync();
+  state.totalFocusedMinutes += mins;
+  state.weekMinutes[0] = (state.weekMinutes[0] || 0) + mins;
+  updateProgressUI();
+  saveState();
+}
+
+// UI events
+startBtn.addEventListener('click', ()=>{
+  if(state.running) pauseTimer(); else startTimer();
+});
+resetBtn.addEventListener('click', ()=>{
+  if(!confirm('Reset current session? Overall progress will remain.')) return;
+  resetTimer();
+});
+
+modeBtns.forEach(b=>{
+  b.addEventListener('click', ()=>{
+    const m = b.dataset.mode;
+    setMode(m);
+  });
+});
+
+customFocusLocal.addEventListener('change', ()=>{
+  const v = Math.max(1, parseInt(customFocusLocal.value||state.settings.customFocusMin,10));
+  state.settings.customFocusMin = v;
+  if(state.mode === 'custom' && !state.running) state.remainingSec = v*60;
+  updateTimeDisplay(); saveState();
+});
+
+// settings pop (gear) click feedback
+settingsBtn.addEventListener('click', ()=>{
+  const open = settingsPop.style.display !== 'block';
+  settingsBtn.classList.add('clicked');
+  setTimeout(()=> settingsBtn.classList.remove('clicked'), 240);
+  settingsPop.style.display = open ? 'block' : 'none';
+  settingsPop.setAttribute('aria-hidden', open ? 'false' : 'true');
+});
+closeSettings.addEventListener('click', ()=>{ settingsPop.style.display='none'; settingsPop.setAttribute('aria-hidden','true'); });
+
+// settings inputs
+usePomodoro.addEventListener('change', ()=> saveState());
+notifyEnd.addEventListener('change', ()=> saveState());
+setPomFocus.addEventListener('change', ()=> { state.settings.pomodoroFocusMin = Math.max(1, parseInt(setPomFocus.value||25,10)); saveState(); });
+setPomBreak.addEventListener('change', ()=> { state.settings.pomodoroBreakMin = Math.max(0, parseInt(setPomBreak.value||5,10)); saveState(); });
+
+// Day modal logic
+function openDayModal(labelIndex){
+  // compute offset and date for that label
+  // offset = (todayIndex - j + 7) % 7 -> weekMinutes[offset]
+  const offset = (state.todayIndex - labelIndex + 7) % 7;
+  const mins = state.weekMinutes[offset] || 0;
+  const rank = computeRank(mins);
+  // compute the actual date for that label
+  const d = new Date();
+  d.setDate(d.getDate() - offset);
+  const dateStr = d.toLocaleDateString();
+  modalTitle.textContent = `${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][labelIndex]} — ${dateStr}`;
+  modalMeta.textContent = `Hours: ${Math.floor(mins/60)}h ${mins%60}m • Rank: ${rank} • Level (now): ${currentLevel()}`;
+  const frac = Math.min(1, mins / (16*60));
+  modalMeter.style.width = `${Math.round(frac*100)}%`;
+  modalDetails.textContent = `Total focused minutes that day: ${mins} — ${computeRank(mins)} threshold: ${mins >= 16*60 ? 'S reached' : mins >= 12*60 ? 'A reached' : mins >= 6*60 ? 'B reached' : 'Keep going'}.`;
+  // show bottom sheet
+  dayBackdrop.style.display = 'block';
+  dayBackdrop.setAttribute('aria-hidden','false');
+  dayModal.classList.add('visible');
+  dayModal.setAttribute('aria-hidden','false');
+  // prevent body scroll on mobile
+  document.body.style.overflow = 'hidden';
+}
+function closeDayModal(){
+  dayModal.classList.remove('visible');
+  dayModal.setAttribute('aria-hidden','true');
+  dayBackdrop.style.display = 'none';
+  dayBackdrop.setAttribute('aria-hidden','true');
+  document.body.style.overflow = '';
+}
+
+dayBackdrop.addEventListener('click', closeDayModal);
+closeDay.addEventListener('click', closeDayModal);
+
+// initial render and sync
+function init(){
+  ensureDaySync();
+  if(!Array.isArray(state.weekMinutes) || state.weekMinutes.length !== 7) state.weekMinutes = [0,0,0,0,0,0,0];
+  if(state.mode === 'pomodoro') state.remainingSec = state.settings.pomodoroFocusMin*60;
+  else if(state.mode === 'hour') state.remainingSec = state.settings.hourMin*60;
+  else state.remainingSec = state.settings.customFocusMin*60;
+  renderWeek();
+  updateProgressUI();
+  updateTimeDisplay();
+  document.querySelectorAll('.mode-btn').forEach(b => { if(b.dataset.mode === state.mode) b.classList.add('active'); else b.classList.remove('active'); });
+}
+init();
+
+// periodic day check and autosave
+setInterval(()=> {
+  const prev = state.todayIndex;
+  ensureDaySync();
+  if(state.todayIndex !== prev){
+    renderWeek();
+    updateProgressUI();
+    updateTimeDisplay();
+  }
+}, 60*1000);
+
+setInterval(()=> saveState(), 2500);
+
+window.addEventListener('beforeunload', ()=>{
+  if(state.running && state.startAt){
+    const elapsed = Math.floor((nowMs() - state.startAt)/1000);
+    state.remainingSec = Math.max(0, state.remainingSec - elapsed);
+    state.running = false;
+    state.startAt = null;
+  }
+  saveState();
+});
+</script>
+</body>
+</html>
